@@ -399,7 +399,11 @@ impl<T: Debug + Clone + PartialEq + PartialOrd + Eq + Ord + Hash> Index<T> {
                 // 最も小さいポスティングがNOTならばそのdoc_id*conj_idは読み飛ばせる
                 // next()に注意
                 if posting_lists[0].value().is_not {
-                    for i in 0..k {
+                    let max_same_posing_count = posting_lists
+                        .iter()
+                        .filter(|x| x.value() == posting_lists[0].value())
+                        .count();
+                    for i in 0..max_same_posing_count {
                         if !posting_lists[i].next() {
                             removable_index.push(i);
                         }
@@ -415,7 +419,11 @@ impl<T: Debug + Clone + PartialEq + PartialOrd + Eq + Ord + Hash> Index<T> {
                     posting_lists[0].value().impact_score_factor,
                 ));
 
-                for i in 0..k {
+                let max_same_posing_count = posting_lists
+                    .iter()
+                    .filter(|x| x.value() == posting_lists[0].value())
+                    .count();
+                for i in 0..max_same_posing_count {
                     // next_doc()に注意
                     if !posting_lists[i].next_doc() {
                         removable_index.push(i);

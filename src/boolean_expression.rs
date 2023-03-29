@@ -12,6 +12,8 @@ pub enum BooleanExpression<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord 
     Negation(Box<BooleanExpression<T>>),
     Conjunction(Vec<BooleanExpression<T>>),
     Disjunction(Vec<BooleanExpression<T>>),
+    Conditional(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
+    BiConditional(Box<BooleanExpression<T>>, Box<BooleanExpression<T>>),
 }
 
 impl<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord + Hash> Debug for BooleanExpression<T> {
@@ -39,6 +41,8 @@ impl<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord + Hash> Debug for Bool
             Self::Contain(a) => write!(f, "Contain{:?}", a),
             Self::True => f.debug_struct("True").finish(),
             Self::False => f.debug_struct("False").finish(),
+            Self::Conditional(a, b) => write!(f, "{:?} -> {:?}", a, b),
+            Self::BiConditional(a, b) => write!(f, "{:?} <-> {:?}", a, b),
         }
     }
 }
@@ -86,6 +90,10 @@ pub fn to_nnf<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord + Hash>(
             BooleanExpression::Disjunction(v) => {
                 BooleanExpression::Conjunction(v.into_iter().map(|x| to_nnf(!x)).collect())
             }
+            BooleanExpression::Conditional(box a, box b) => to_nnf(a & !b),
+            BooleanExpression::BiConditional(box a, box b) => {
+                to_nnf((a.clone() | b.clone()) & (!a.clone() | !b.clone()))
+            }
             operand @ _ => !operand,
         },
         BooleanExpression::Conjunction(v) => {
@@ -93,6 +101,10 @@ pub fn to_nnf<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord + Hash>(
         }
         BooleanExpression::Disjunction(v) => {
             BooleanExpression::Disjunction(v.into_iter().map(to_nnf).collect())
+        }
+        BooleanExpression::Conditional(box a, box b) => to_nnf(!a | b),
+        BooleanExpression::BiConditional(box a, box b) => {
+            to_nnf((a.clone() & b.clone()) | (!a.clone() & !b.clone()))
         }
         _ => be.clone(),
     }
@@ -279,6 +291,10 @@ pub fn simplify<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord + Hash>(
         BooleanExpression::Conjunction(mut inner) => {
             inner = inner.into_iter().map(simplify).collect();
 
+            if inner.len() == 1 {
+                return inner[0].clone();
+            }
+
             let negative_contains: Vec<BooleanExpression<T>> = inner
                 .iter()
                 .filter_map(|x| match x {
@@ -319,6 +335,10 @@ pub fn simplify<T: Clone + Debug + PartialEq + PartialOrd + Eq + Ord + Hash>(
         }
         BooleanExpression::Disjunction(mut inner) => {
             inner = inner.into_iter().map(simplify).collect();
+
+            if inner.len() == 1 {
+                return inner[0].clone();
+            }
 
             let negative_contains: Vec<BooleanExpression<T>> = inner
                 .iter()
